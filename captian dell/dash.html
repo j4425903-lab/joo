@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>لوحة التحكم والإحصائيات المركزية - الغردقة Express</title>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+    <style>
+        :root[data-theme="light"] {
+            --primary: #2563eb; --primary-dark: #1d4ed8; --secondary: #10b981; --danger: #ef4444; --warning: #f59e0b;
+            --dark: #0f172a; --card-bg: #ffffff; --bg-light: #f8fafc; --text-main: #334155; --text-muted: #64748b;
+            --border: #e2e8f0; --header-bg: #0f172a; --input-bg: #fafafa;
+        }
+        :root[data-theme="dark"] {
+            --primary: #3b82f6; --primary-dark: #2563eb; --secondary: #10b981; --danger: #f87171; --warning: #fbbf24;
+            --dark: #f8fafc; --card-bg: #1e293b; --bg-light: #0f172a; --text-main: #f1f5f9; --text-muted: #94a3b8;
+            --border: #334155; --header-bg: #020617; --input-bg: #0f172a;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Tajawal', sans-serif; transition: background-color 0.3s ease, color 0.3s ease; }
+        body { background-color: var(--bg-light); color: var(--text-main); min-height: 100vh; display: flex; flex-direction: column; }
+
+        header { background-color: var(--header-bg); color: white; padding: 0.8rem 1rem; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 12px rgba(0,0,0,0.2); position: sticky; top: 0; z-index: 100; gap: 10px; }
+        .logo { font-size: 1rem; font-weight: 800; display: flex; align-items: center; gap: 8px; color: #38bdf8; white-space: nowrap; }
+
+        .header-actions { display: flex; align-items: center; gap: 8px; }
+        .theme-toggle-btn, .home-link-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #f1f5f9; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-weight: 700; display: flex; align-items: center; gap: 6px; font-size: 0.8rem; text-decoration: none; }
+
+        main { flex: 1; padding: 1rem; max-width: 1400px; margin: 0 auto; width: 100%; }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+        .stat-card { background: var(--card-bg); border-radius: 14px; padding: 1rem; border: 1px solid var(--border); box-shadow: 0 4px 15px rgba(0,0,0,0.05); display: flex; align-items: center; gap: 0.8rem; }
+        .stat-icon { width: 45px; height: 45px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0; }
+        .stat-info h3 { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 2px; }
+        .stat-info .value { font-size: 1.1rem; font-weight: 800; color: var(--text-main); }
+
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; }
+        .card { background: var(--card-bg); border-radius: 14px; padding: 1.2rem; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border: 1px solid var(--border); }
+        .card-title { font-size: 1rem; font-weight: 700; color: var(--text-main); margin-bottom: 1rem; display: flex; align-items: center; gap: 8px; border-bottom: 2px solid var(--border); padding-bottom: 0.6rem; }
+
+        .table-responsive { width: 100%; overflow-x: auto; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; min-width: 250px; }
+        .data-table th, .data-table td { padding: 10px 8px; text-align: right; border-bottom: 1px solid var(--border); }
+        .data-table th { color: var(--text-muted); font-weight: 700; background: rgba(0,0,0,0.02); }
+
+        .activity-list { display: flex; flex-direction: column; gap: 10px; max-height: 350px; overflow-y: auto; }
+        .activity-item { display: flex; flex-direction: column; gap: 4px; padding: 10px; background: rgba(0,0,0,0.02); border-radius: 8px; border-right: 4px solid var(--primary); font-size: 0.8rem; }
+        .empty-text { text-align: center; color: var(--text-muted); padding: 1.5rem; font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">
+            <i class="fa-solid fa-chart-line"></i>
+            <span>لوحة التحكم والإحصائيات المركزية (سحابية)</span>
+        </div>
+
+        <div class="header-actions">
+            <a href="index.html" class="home-link-btn"><i class="fa-solid fa-house"></i> الرئيسية</a>
+            <button class="theme-toggle-btn" onclick="toggleTheme()">
+                <i class="fa-solid fa-moon" id="themeIcon"></i>
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(37, 99, 235, 0.1); color: var(--primary);">
+                    <i class="fa-solid fa-boxes-stacked"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>إجمالي الأوردرات</h3>
+                    <div class="value" id="statTotalOrders">0</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(245, 158, 11, 0.1); color: var(--warning);">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>الطلبات النشطة</h3>
+                    <div class="value" id="statActiveOrders">0</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(16, 185, 129, 0.1); color: var(--secondary);">
+                    <i class="fa-solid fa-circle-check"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>المكتملة</h3>
+                    <div class="value" id="statDeliveredOrders">0</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(239, 68, 68, 0.1); color: var(--danger);">
+                    <i class="fa-solid fa-trash-can"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>أوردرات محذوفة</h3>
+                    <div class="value" id="statDeletedOrders">0</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(139, 92, 246, 0.1); color: #8b5cf6;">
+                    <i class="fa-solid fa-sack-dollar"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>مبيعات الطعام</h3>
+                    <div class="value" id="statTotalSales">0 ج</div>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(6, 182, 212, 0.1); color: #06b6d4;">
+                    <i class="fa-solid fa-hand-holding-dollar"></i>
+                </div>
+                <div class="stat-info">
+                    <h3>أجور التوصيل</h3>
+                    <div class="value" id="statTotalDelivery">0 ج</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="dashboard-grid">
+            <div class="card">
+                <div class="card-title">
+                    <i class="fa-solid fa-utensils" style="color: var(--primary);"></i>
+                    سجل نشاط المطاعم
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>المؤشر</th>
+                                <th>القيمة</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>أوردرات تم إنشاؤها</td>
+                                <td id="restCreatedCount">0</td>
+                            </tr>
+                            <tr>
+                                <td>أوردرات تم إلغاؤها</td>
+                                <td id="restDeletedCount" style="color: var(--danger); font-weight:700;">0</td>
+                            </tr>
+                            <tr>
+                                <td>نسبة الإكتمال</td>
+                                <td id="restSuccessRate">0%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">
+                    <i class="fa-solid fa-motorcycle" style="color: var(--secondary);"></i>
+                    أداء الطيارين / الكباتن
+                </div>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>الطيار</th>
+                                <th>الطلبات</th>
+                                <th>الأرباح</th>
+                            </tr>
+                        </thead>
+                        <tbody id="captainsTableBody">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card" style="grid-column: 1 / -1;">
+                <div class="card-title">
+                    <i class="fa-solid fa-bell" style="color: var(--warning);"></i>
+                    مراقبة جميع الأوردرات والحالات الحالية
+                </div>
+                <div class="activity-list" id="activeOrdersList">
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const firebaseConfig = {
+            databaseURL: "https://hurghada-express-default-rtdb.firebaseio.com/"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            if (sessionStorage.getItem('dash_authenticated') !== 'true') {
+                alert('عذراً، يجب دخول الداشبورد برقم الهاتف وكلمة السر أولاً.');
+                window.location.href = "index.html";
+                return;
+            }
+
+            initTheme();
+            bindLiveDashboardData();
+        });
+
+        function bindLiveDashboardData() {
+            let activeOrders = [];
+            let deliveredOrders = [];
+            let deletedCount = 0;
+
+            function updateUI() {
+                const totalCreated = activeOrders.length + deliveredOrders.length + deletedCount;
+                const totalDelivered = deliveredOrders.length;
+
+                let totalSales = 0;
+                let totalDelivery = 0;
+
+                [...activeOrders, ...deliveredOrders].forEach(o => {
+                    totalSales += (o.foodPrice || 0);
+                    totalDelivery += (o.deliveryPrice || 0);
+                });
+
+                document.getElementById('statTotalOrders').innerText = totalCreated;
+                document.getElementById('statActiveOrders').innerText = activeOrders.length;
+                document.getElementById('statDeliveredOrders').innerText = totalDelivered;
+                document.getElementById('statDeletedOrders').innerText = deletedCount;
+                document.getElementById('statTotalSales').innerText = totalSales + ' ج';
+                document.getElementById('statTotalDelivery').innerText = totalDelivery + ' ج';
+
+                document.getElementById('restCreatedCount').innerText = totalCreated;
+                document.getElementById('restDeletedCount').innerText = deletedCount;
+                const successRate = totalCreated > 0 ? Math.round((totalDelivered / totalCreated) * 100) : 0;
+                document.getElementById('restSuccessRate').innerText = successRate + '%';
+
+                const captains = {};
+                deliveredOrders.forEach(o => {
+                    const name = o.captainName || 'غير محدد';
+                    if (!captains[name]) {
+                        captains[name] = { count: 0, earnings: 0 };
+                    }
+                    captains[name].count++;
+                    captains[name].earnings += (o.deliveryPrice || 0);
+                });
+
+                const captainsTable = document.getElementById('captainsTableBody');
+                const captainKeys = Object.keys(captains);
+
+                if (captainKeys.length === 0) {
+                    captainsTable.innerHTML = `<tr><td colspan="3" style="text-align:center; color:var(--text-muted);">لا توجد عمليات مكتملة حتى الآن</td></tr>`;
+                } else {
+                    captainsTable.innerHTML = captainKeys.map(key => `
+                        <tr>
+                            <td><strong>${key}</strong></td>
+                            <td>${captains[key].count}</td>
+                            <td style="color:var(--secondary); font-weight:700;">${captains[key].earnings} ج</td>
+                        </tr>
+                    `).join('');
+                }
+
+                const activeContainer = document.getElementById('activeOrdersList');
+                if (activeOrders.length === 0) {
+                    activeContainer.innerHTML = `<div class="empty-text">لا توجد أوردرات نشطة حالياً</div>`;
+                } else {
+                    activeContainer.innerHTML = activeOrders.map(o => `
+                        <div class="activity-item">
+                            <div>
+                                <strong>${o.id}</strong> - المطعم: ${o.restName} | المنطقة: ${o.area} | طعام: ${o.foodPrice}ج | توصيل: ${o.deliveryPrice}ج
+                            </div>
+                            <div>
+                                الحالة: <span style="font-weight:bold; color:var(--primary);">${translateStatus(o.status)}</span>
+                                ${o.captainName ? `(الكابتن: ${o.captainName})` : ''}
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            }
+
+            db.ref('orders').on('value', snap => {
+                activeOrders = snap.val() ? Object.values(snap.val()) : [];
+                updateUI();
+            });
+
+            db.ref('delivered_history').on('value', snap => {
+                deliveredOrders = snap.val() ? Object.values(snap.val()) : [];
+                updateUI();
+            });
+
+            db.ref('deleted_orders_count').on('value', snap => {
+                deletedCount = snap.val() || 0;
+                updateUI();
+            });
+        }
+
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeUI(savedTheme);
+        }
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeUI(newTheme);
+        }
+
+        function updateThemeUI(theme) {
+            const icon = document.getElementById('themeIcon');
+            if (icon) {
+                icon.className = theme === 'dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+            }
+        }
+
+        function translateStatus(s) {
+            switch(s) {
+                case 'pending': return 'في انتظار طيار';
+                case 'accepted': return 'تم القبول';
+                case 'picked': return 'تم الاستلام';
+                default: return s;
+            }
+        }
+    </script>
+</body>
+</html>
